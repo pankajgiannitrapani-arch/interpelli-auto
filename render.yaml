@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: api-interpelli
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && pip install --upgrade pip
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port 10000
+    autoDeploy: true
+    rootDir: api
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+  - type: worker
+    name: worker-interpelli
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && pip install --upgrade pip
+    startCommand: python run.py
+    autoDeploy: true
+    rootDir: worker
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: INTERVAL_SECONDS
+        value: 900
+databases:
+  - name: db-interpelli
