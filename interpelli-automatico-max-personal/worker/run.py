@@ -5,27 +5,31 @@ from dateparser import parse as parse_date
 import psycopg
 from datetime import datetime, timezone, date
 
+# ===== aggiunta: flag one-shot =====
+RUN_ONCE = os.getenv("RUN_ONCE") == "1"
+# ===================================
+
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 INTERVAL_SECONDS = int(os.getenv("INTERVAL_SECONDS", "900"))  # 15 min
 
 CSV_LINK = "https://dati.istruzione.it/opendata/opendata/catalogo/elements1/leaf/SCUANAGRAFESTAT20252620250901.csv"
 
 BASE_CATEGORIES = [
-  ("interpello", r"\\binterpello\\b|chiamata|convocazione"),
-  ("mad", r"messa a disposizione|\\bmad\\b"),
+  ("interpello", r"\binterpello\b|chiamata|convocazione"),
+  ("mad", r"messa a disposizione|\bmad\b"),
   ("supplenza", r"supplenz"),
   ("reclutamento", r"reclutamento|recluta"),
-  ("bando", r"\\bbando\\b|\\bbandi\\b"),
-  ("avviso", r"\\bavviso\\b|\\bavvisi\\b"),
+  ("bando", r"\bbando\b|\bbandi\b"),
+  ("avviso", r"\bavviso\b|\bavvisi\b"),
   ("graduatoria", r"graduatori"),
   ("incarico", r"incaric"),
-  ("concorso", r"\\bconcorso\\b|\\bconcorsi\\b"),
+  ("concorso", r"\bconcorso\b|\bconcorsi\b"),
   ("esito", r"esito|esiti|finale"),
-  ("docenti", r"docent|classe di concorso|c\\.?d\\.?c\\.?"),
-  ("ata", r"\\bata\\b|assistente|collaboratore scolastico|\\baa\\b|\\bat\\b|\\bcs\\b"),
-  ("assistente amministrativo", r"assistente amministrativ|\\baa\\b"),
-  ("assistente tecnico", r"assistente tecnic|\\bat\\b"),
-  ("collaboratore scolastico", r"collaboratore scolastic|\\bcs\\b"),
+  ("docenti", r"docent|classe di concorso|c\.?d\.?c\.?"),
+  ("ata", r"\bata\b|assistente|collaboratore scolastico|\baa\b|\bat\b|\bcs\b"),
+  ("assistente amministrativo", r"assistente amministrativ|\baa\b"),
+  ("assistente tecnico", r"assistente tecnic|\bat\b"),
+  ("collaboratore scolastico", r"collaboratore scolastic|\bcs\b"),
   ("educatore", r"educator|educativi"),
   ("dirigente", r"dirigente scolastic"),
 ]
@@ -55,7 +59,7 @@ def extract_categories(text: str):
     for label, pattern in BASE_CATEGORIES:
         if re.search(pattern, t):
             cats.add(label)
-    for m in re.findall(r"\\b(a-\\d{2}|b-\\d{2}|ad[s|m])\\b", t, flags=re.IGNORECASE):
+    for m in re.findall(r"\b(a-\d{2}|b-\d{2}|ad[s|m])\b", t, flags=re.IGNORECASE):
         cats.add(f"cdc:{m.upper()}")
     if not cats:
         cats.add("varie")
@@ -223,7 +227,7 @@ def refresh_status(conn, client):
 
 def main():
     while True:
-        print("Worker tick...")
+        print("Worker tick... (one-shot =", RUN_ONCE, ")")
         with httpx.Client(follow_redirects=True) as client:
             sources = load_usr_sources()
             for usr in list(sources):
@@ -238,7 +242,15 @@ def main():
                     except Exception as e:
                         print("ERR source", s.get("name"), e)
                 refresh_status(conn, client)
+
+        # ===== aggiunta: uscita dopo un giro completo =====
+        if RUN_ONCE:
+            print("RUN_ONCE attivo: finito un giro, esco.")
+            break
+        # ==================================================
+
         time.sleep(INTERVAL_SECONDS)
 
 if __name__ == "__main__":
     main()
+
