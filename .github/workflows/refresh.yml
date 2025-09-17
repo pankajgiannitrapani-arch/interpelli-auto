@@ -6,17 +6,21 @@ on:
 jobs:
   run-worker-once:
     runs-on: ubuntu-latest
+    timeout-minutes: 20   # sicurezza, termina se resta bloccato
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: "3.12.0" }
+        with:
+          python-version: "3.12.0"
       - name: Install deps
         working-directory: interpelli-automatico-max-personal/worker
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Run worker
+      - name: Run worker (one-shot)
         working-directory: interpelli-automatico-max-personal/worker
+        env:
+          RUN_ONCE: "1"
         run: python run.py
